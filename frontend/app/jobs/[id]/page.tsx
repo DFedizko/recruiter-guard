@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getJob, getJobApplications, uploadApplication } from '@/lib/api';
+import { getJob, getJobApplications, uploadApplication, getCurrentUser, deleteJob } from '@/lib/api';
+import { getMyApplications } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,13 +13,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { HTMLContent } from '@/components/ui/html-content';
-import { ArrowLeft, Upload, X } from 'lucide-react';
+import { ArrowLeft, Upload, X, Trash } from 'lucide-react';
 
 interface Job {
   id: string;
   title: string;
   description: string;
   requiredSkills: string[];
+  company?: string | null;
+  user: {
+    id: string;
+    name: string;
+    role: 'ADMIN' | 'RECRUITER' | 'CANDIDATE';
+  };
 }
 
 type ApplicationStatus = 'PENDING' | 'SHORTLISTED' | 'ON_HOLD' | 'REJECTED';
@@ -34,6 +41,9 @@ interface Application {
   matchScore: number;
   status: ApplicationStatus;
   notes?: string | null;
+  submittedBy?: {
+    id: string;
+  } | null;
 }
 
 const STATUS_META: Record<ApplicationStatus, { label: string; className: string }> = {
@@ -69,11 +79,12 @@ export default function JobDetailPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [resumeText, setResumeText] = useState('');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [currentUser, setCurrentUser] = useState<null | { id: string; role: 'ADMIN' | 'RECRUITER' | 'CANDIDATE' }>(null);
+  const [hasApplied, setHasApplied] = useState(false);
+  const [canViewApplications, setCanViewApplications] = useState(true);
+  const [checkingMine, setCheckingMine] = useState(false);
 
   useEffect(() => {
     loadJob();
@@ -81,7 +92,28 @@ export default function JobDetailPage() {
 
   useEffect(() => {
     loadApplications();
-  }, [statusFilter, order]);
+  }, [statusFilter, order, currentUser]);
+
+  useEffect(() => {
+    getCurrentUser()
+      .then((data) => {
+        const userShape = { id: data.user.id, role: data.user.role as 'ADMIN' | 'RECRUITER' | 'CANDIDATE' };
+        setCurrentUser(userShape);
+        loadApplications();
+        if (data.user.role === 'CANDIDATE' || data.user.role === 'RECRUITER' || data.user.role === 'ADMIN') {
+          setCheckingMine(true);
+          getMyApplications()
+            .then((apps) => {
+              const already = apps.some((app: any) => app.job.id === jobId);
+              setHasApplied(already);
+            })
+            .catch(() => {})
+            .finally(() => setCheckingMine(false));
+        }
+      })
+      .catch(() => setCurrentUser(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadJob = async () => {
     try {
@@ -102,35 +134,73 @@ export default function JobDetailPage() {
         order,
       });
       setApplications(data);
+      setCanViewApplications(true);
     } catch (error) {
-      console.error('Failed to load applications:', error);
+      const message = error instanceof Error ? error.message : 'Failed to load applications';
+      if (message.toLowerCase().includes('forbidden')) {
+        setCanViewApplications(false);
+        setApplications([]);
+      } else {
+        console.error('Failed to load applications:', error);
+      }
+    }
+  };
+
+  const loadMyApplications = async () => {
+    if (!currentUser) return;
+    setCheckingMine(true);
+    try {
+      const mine = await getMyApplications();
+      const applied = mine.some((app: any) => app.job.id === jobId);
+      setHasApplied(applied);
+    } catch (error) {
+      console.error('Failed to load my applications:', error);
+    } finally {
+      setCheckingMine(false);
+    }
+  };
+
+  const handleDeleteJob = async () => {
+    if (!job) return;
+    const confirmed = window.confirm('Deseja excluir esta vaga?');
+    if (!confirmed) return;
+    try {
+      await deleteJob(job.id);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Failed to delete job:', error);
     }
   };
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (hasApplied) {
+      return;
+    }
     setUploadError('');
     setUploading(true);
 
     try {
       await uploadApplication(jobId, {
-        fullName,
-        email,
-        phone: phone || undefined,
         resumeText: resumeText || undefined,
         resumeFile: resumeFile || undefined,
       });
 
-      setFullName('');
-      setEmail('');
-      setPhone('');
       setResumeText('');
       setResumeFile(null);
       setShowUploadForm(false);
 
       await loadApplications();
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Failed to upload application');
+      const message = err instanceof Error ? err.message : '';
+      if (message.toLowerCase().includes('already applied')) {
+        setHasApplied(true);
+        setUploadError('Você já enviou uma candidatura para esta vaga.');
+      } else if (message.toLowerCase().includes('forbidden')) {
+        setUploadError('Você não tem permissão para enviar candidatura nesta vaga.');
+      } else {
+        setUploadError('Não foi possível enviar a candidatura. Tente novamente.');
+      }
     } finally {
       setUploading(false);
     }
@@ -146,6 +216,10 @@ export default function JobDetailPage() {
     );
   }
 
+  const canDeleteJob = currentUser 
+    && (currentUser.role === 'ADMIN' || (currentUser.role === 'RECRUITER'
+    && job.user?.id === currentUser.id));
+
   return (
     <main className="flex-1 bg-background">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -158,14 +232,30 @@ export default function JobDetailPage() {
           </Button>
 
           <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-3xl">{job.title}</CardTitle>
+            <CardHeader className="flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-3xl">{job.title}</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {job.company ? job.company : 'Empresa não informada'}
+                  </p>
+                </div>
+                {canDeleteJob && (
+                  <Button variant="destructive" size="sm" onClick={handleDeleteJob}>
+                    <Trash className="mr-2 h-4 w-4" />
+                    Excluir vaga
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <HTMLContent 
                 content={job.description} 
                 className="prose prose-sm dark:prose-invert max-w-none"
               />
+            </CardContent>
+            <CardContent className="text-sm text-muted-foreground">
+              <span>Criado por: {job.user?.name || 'Usuário desconhecido'}</span>
             </CardContent>
             {job.requiredSkills && job.requiredSkills.length > 0 && (
               <CardContent>
@@ -191,8 +281,9 @@ export default function JobDetailPage() {
                   <div className="text-sm text-muted-foreground">Filtre por status e ordene pela pontuação</div>
                 </div>
                 <div className="flex flex-wrap gap-2 md:items-center">
-                  <label className="text-sm text-muted-foreground">Status:</label>
+                  <label className="text-sm text-muted-foreground" htmlFor="status-select">Status:</label>
                   <select
+                    id="status-select"
                     className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as 'ALL' | ApplicationStatus)}
@@ -204,8 +295,9 @@ export default function JobDetailPage() {
                     <option value="REJECTED">Recusado</option>
                   </select>
 
-                  <label className="text-sm text-muted-foreground">Ordenar:</label>
+                  <label className="text-sm text-muted-foreground" htmlFor="order-select">Ordenar:</label>
                   <select
+                    id="order-select"
                     className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     value={order}
                     onChange={(e) => setOrder(e.target.value as 'asc' | 'desc')}
@@ -215,10 +307,13 @@ export default function JobDetailPage() {
                   </select>
 
                   <Button
-                    onClick={() => setShowUploadForm(!showUploadForm)}
+                    onClick={() => !hasApplied && setShowUploadForm(!showUploadForm)}
                     variant={showUploadForm ? "outline" : "default"}
+                    disabled={hasApplied}
                   >
-                    {showUploadForm ? (
+                    {hasApplied ? (
+                      'Já enviada'
+                    ) : showUploadForm ? (
                       <>
                         <X className="mr-2 h-4 w-4" />
                         Cancelar
@@ -226,7 +321,7 @@ export default function JobDetailPage() {
                     ) : (
                       <>
                         <Upload className="mr-2 h-4 w-4" />
-                        Enviar Candidato
+                        Enviar candidatura
                       </>
                     )}
                   </Button>
@@ -234,7 +329,10 @@ export default function JobDetailPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {showUploadForm && (
+              {!canViewApplications && (
+                <p className="text-sm text-muted-foreground mb-4">Apenas o dono da vaga ou administradores podem ver as candidaturas.</p>
+              )}
+              {showUploadForm && !hasApplied && (
                 <form onSubmit={handleUploadSubmit} className="mb-6 p-4 bg-muted rounded-lg space-y-4">
                   {uploadError && (
                     <div className="bg-destructive/15 text-destructive text-sm px-4 py-3 rounded-md border border-destructive/20">
@@ -242,45 +340,16 @@ export default function JobDetailPage() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="fullName">Nome Completo *</Label>
-                      <Input
-                        id="fullName"
-                        type="text"
-                        required
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">E-mail *</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Telefone</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="resumeFile">Arquivo do Currículo (PDF, DOCX ou TXT)</Label>
-                      <Input
-                        id="resumeFile"
-                        type="file"
-                        accept=".pdf,.docx,.doc,.txt"
-                        onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="resumeFile">Arquivo do Currículo (PDF, DOCX ou TXT)</Label>
+                    <Input
+                      id="resumeFile"
+                      type="file"
+                      accept=".pdf,.docx,.doc,.txt"
+                      className="cursor-pointer"
+                      onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
+                    />
+                    <p className="text-xs text-muted-foreground">Usaremos seu nome e e-mail do perfil.</p>
                   </div>
 
                   <div className="space-y-2">
@@ -294,73 +363,79 @@ export default function JobDetailPage() {
                     />
                   </div>
 
-                  <Button type="submit" disabled={uploading}>
-                    {uploading ? 'Enviando...' : 'Enviar Candidatura'}
+                  <Button type="submit" disabled={uploading || hasApplied}>
+                    {hasApplied ? 'Já enviada' : uploading ? 'Enviando...' : 'Enviar Candidatura'}
                   </Button>
                 </form>
               )}
 
-              {applications.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">Ainda não há candidaturas.</p>
-              ) : (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Candidato</TableHead>
-                        <TableHead>Pontuação</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Habilidades</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {applications.map((app) => (
-                        <TableRow key={app.id}>
-                          <TableCell>
-                            <div className="font-medium">{app.candidate.fullName}</div>
-                            <div className="text-sm text-muted-foreground">{app.candidate.email}</div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="default" className="bg-green-600 hover:bg-green-700">
-                              {app.matchScore.toFixed(1)}%
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={STATUS_META[app.status]?.className}
-                            >
-                              {STATUS_META[app.status]?.label || 'Sem status'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {Array.isArray(app.extractedSkills) &&
-                                app.extractedSkills.slice(0, 3).map((skill, idx) => (
-                                  <Badge key={idx} variant="secondary">
-                                    {skill}
-                                  </Badge>
-                                ))}
-                              {Array.isArray(app.extractedSkills) &&
-                                app.extractedSkills.length > 3 && (
-                                  <Badge variant="outline">
-                                    +{app.extractedSkills.length - 3} mais
-                                  </Badge>
-                                )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="link" asChild>
-                              <Link href={`/applications/${app.id}`}>Ver Detalhes</Link>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+              {hasApplied && (
+                <p className="text-sm text-muted-foreground mb-4">Você já enviou uma candidatura para esta vaga.</p>
               )}
+
+              {canViewApplications && 
+                (applications.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">Ainda não há candidaturas.</p>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Candidato</TableHead>
+                          <TableHead>Pontuação</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Habilidades</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {applications.map((app) => (
+                          <TableRow key={app.id}>
+                            <TableCell>
+                              <div className="font-medium">{app.candidate.fullName}</div>
+                              <div className="text-sm text-muted-foreground">{app.candidate.email}</div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                                {app.matchScore.toFixed(1)}%
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className={STATUS_META[app.status]?.className}
+                              >
+                                {STATUS_META[app.status]?.label || 'Sem status'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {Array.isArray(app.extractedSkills) &&
+                                  app.extractedSkills.slice(0, 3).map((skill, idx) => (
+                                    <Badge key={idx} variant="secondary">
+                                      {skill}
+                                    </Badge>
+                                  ))}
+                                {Array.isArray(app.extractedSkills) &&
+                                  app.extractedSkills.length > 3 && (
+                                    <Badge variant="outline">
+                                      +{app.extractedSkills.length - 3} mais
+                                    </Badge>
+                                  )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="link" asChild>
+                                <Link href={`/applications/${app.id}`}>Ver Detalhes</Link>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ))
+              }
             </CardContent>
           </Card>
         </div>

@@ -14,6 +14,9 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [role, setRole] = useState<'ADMIN' | 'RECRUITER' | 'CANDIDATE'>('RECRUITER');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -23,7 +26,11 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await register(name, email, password);
+      await register(name, email, password, {
+        role,
+        phone: phone || undefined,
+        avatarUrl: avatarUrl || undefined,
+      });
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
@@ -75,6 +82,42 @@ export default function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="phone">Telefone</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  placeholder="(11) 99999-9999"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="avatar">Foto (URL)</Label>
+                <Input
+                  id="avatar"
+                  name="avatar"
+                  type="url"
+                  placeholder="https://..."
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Use um link público para sua foto.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Perfil</Label>
+                <select
+                  id="role"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as 'ADMIN' | 'RECRUITER' | 'CANDIDATE')}
+                >
+                  <option value="RECRUITER">Recrutador</option>
+                  <option value="CANDIDATE">Candidato</option>
+                  <option value="ADMIN">Administrador</option>
+                </select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
                 <Input
                   id="password"
@@ -110,4 +153,3 @@ export default function RegisterPage() {
     </main>
   );
 }
-

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getJobs } from '@/lib/api';
+import { getJobs, getCurrentUser } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,12 +16,19 @@ interface Job {
   description: string;
   requiredSkills: string[];
   applications: Array<{ id: string }>;
+  company?: string | null;
+  user: {
+    id: string;
+    name: string;
+    role: 'ADMIN' | 'RECRUITER' | 'CANDIDATE';
+  };
   createdAt: string;
 }
 
 export default function DashboardPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [currentRole, setCurrentRole] = useState<'ADMIN' | 'RECRUITER' | 'CANDIDATE' | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadJobs = useCallback(async () => {
@@ -37,6 +44,9 @@ export default function DashboardPage() {
   }, [router]);
 
   useEffect(() => {
+    getCurrentUser()
+      .then((data) => setCurrentRole(data.user.role))
+      .catch(() => setCurrentRole(null));
     loadJobs();
   }, [loadJobs]);
 
@@ -56,12 +66,14 @@ export default function DashboardPage() {
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold">Vagas</h1>
-            <Button asChild>
-              <Link href="/jobs/new">
-                <Plus className="mr-2 h-4 w-4" />
-                Criar Nova Vaga
-              </Link>
-            </Button>
+            {currentRole !== 'CANDIDATE' && (
+              <Button asChild>
+                <Link href="/jobs/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Criar Nova Vaga
+                </Link>
+              </Button>
+            )}
           </div>
 
           {jobs.length === 0 ? (
@@ -80,6 +92,9 @@ export default function DashboardPage() {
                   <Link href={`/jobs/${job.id}`}>
                     <CardHeader>
                       <CardTitle className="line-clamp-2">{job.title}</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {job.company ? job.company : 'Empresa não informada'}
+                      </p>
                     </CardHeader>
                     <CardContent>
                       <div className="line-clamp-3 text-sm text-muted-foreground prose prose-sm dark:prose-invert max-w-none [&_p]:m-0 [&_p]:line-clamp-3 [&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-sm">
@@ -99,7 +114,10 @@ export default function DashboardPage() {
                       )}
                     </CardContent>
                     <CardFooter className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{job.applications.length} candidat{job.applications.length !== 1 ? 'os' : 'o'}</span>
+                      <span className="flex flex-col">
+                        <span>{job.applications.length} candidat{job.applications.length !== 1 ? 'os' : 'o'}</span>
+                        <span className="text-xs">Criado por: {job.user.name}</span>
+                      </span>
                       <span>{new Date(job.createdAt).toLocaleDateString()}</span>
                     </CardFooter>
                   </Link>
@@ -112,4 +130,3 @@ export default function DashboardPage() {
     </main>
   );
 }
-

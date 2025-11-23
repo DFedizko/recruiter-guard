@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createJob } from '@/lib/api';
+import { createJob, getCurrentUser } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,9 +15,17 @@ export default function NewJobPage() {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [company, setCompany] = useState('');
   const [requiredSkills, setRequiredSkills] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState<'ADMIN' | 'RECRUITER' | 'CANDIDATE' | null>(null);
+
+  useEffect(() => {
+    getCurrentUser()
+      .then((data) => setRole(data.user.role))
+      .catch(() => setRole(null));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +42,7 @@ export default function NewJobPage() {
         title,
         description,
         requiredSkills: skillsArray,
+        company: company || undefined,
       });
 
       router.push('/dashboard');
@@ -63,12 +72,28 @@ export default function NewJobPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {role === 'CANDIDATE' ? (
+                <div className="text-sm text-muted-foreground">
+                  Somente recrutadores ou administradores podem criar vagas.
+                </div>
+              ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
                   <div className="bg-destructive/15 text-destructive text-sm px-4 py-3 rounded-md border border-destructive/20">
                     {error}
                   </div>
                 )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="company">Empresa</Label>
+                  <Input
+                    type="text"
+                    id="company"
+                    placeholder="ex: Tech Corp"
+                    value={company}
+                    onChange={(e) => setCompany(e.target.value)}
+                  />
+                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="title">Título da Vaga *</Label>
@@ -121,6 +146,7 @@ export default function NewJobPage() {
                   </Button>
                 </div>
               </form>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -128,4 +154,3 @@ export default function NewJobPage() {
     </main>
   );
 }
-

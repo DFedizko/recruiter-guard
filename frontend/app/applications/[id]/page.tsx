@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getApplication, updateApplication } from '@/lib/api';
+import { getApplication, updateApplication, getCurrentUser, deleteApplication } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,12 +26,22 @@ interface Application {
     title: string;
     description: string;
     requiredSkills: string[];
+    user: {
+      id: string;
+      name: string;
+      role: 'ADMIN' | 'RECRUITER' | 'CANDIDATE';
+    };
   };
   extractedSkills: string[];
   matchScore: number;
   sanitizedResumeText: string;
   status: ApplicationStatus;
   notes?: string | null;
+  submittedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   createdAt: string;
 }
 
@@ -61,6 +71,7 @@ export default function ApplicationDetailPage() {
 
   const [application, setApplication] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<null | { id: string; role: 'ADMIN' | 'RECRUITER' | 'CANDIDATE' }>(null);
   const [status, setStatus] = useState<ApplicationStatus>('PENDING');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -85,6 +96,12 @@ export default function ApplicationDetailPage() {
     loadApplication();
   }, [loadApplication]);
 
+  useEffect(() => {
+    getCurrentUser()
+      .then((data) => setCurrentUser({ id: data.user.id, role: data.user.role }))
+      .catch(() => setCurrentUser(null));
+  }, []);
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveError('');
@@ -104,6 +121,18 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!application) return;
+    const confirmed = window.confirm('Deseja excluir esta candidatura?');
+    if (!confirmed) return;
+    try {
+      await deleteApplication(application.id);
+      router.push(`/jobs/${application.job.id}`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Não foi possível excluir');
+    }
+  };
+
   if (loading || !application) {
     return (
       <main className="flex-1 flex items-center justify-center bg-background">
@@ -113,6 +142,9 @@ export default function ApplicationDetailPage() {
       </main>
     );
   }
+
+  const canUpdate = currentUser && (currentUser.role === 'ADMIN' || (currentUser.role === 'RECRUITER' && application.job.user.id === currentUser.id));
+  const canDelete = currentUser && (currentUser.role === 'ADMIN' || application.submittedBy?.id === currentUser.id);
 
   return (
     <main className="flex-1 bg-background">
@@ -153,6 +185,11 @@ export default function ApplicationDetailPage() {
                       {STATUS_META[status]?.label || 'Sem status'}
                     </Badge>
                   </div>
+                  {canDelete && (
+                    <Button variant="destructive" size="sm" onClick={handleDelete}>
+                      Excluir candidatura
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -192,60 +229,62 @@ export default function ApplicationDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Triagem e Notas</CardTitle>
-              <CardDescription>Classifique o candidato e registre observações internas</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleUpdate} className="space-y-4">
-                {saveError && (
-                  <div className="bg-destructive/15 text-destructive text-sm px-4 py-3 rounded-md border border-destructive/20">
-                    {saveError}
-                  </div>
-                )}
-                {saveMessage && (
-                  <div className="bg-green-600/15 text-green-600 text-sm px-4 py-3 rounded-md border border-green-600/20">
-                    {saveMessage}
-                  </div>
-                )}
+          {canUpdate && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Triagem e Notas</CardTitle>
+                <CardDescription>Classifique o candidato e registre observações internas</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleUpdate} className="space-y-4">
+                  {saveError && (
+                    <div className="bg-destructive/15 text-destructive text-sm px-4 py-3 rounded-md border border-destructive/20">
+                      {saveError}
+                    </div>
+                  )}
+                  {saveMessage && (
+                    <div className="bg-green-600/15 text-green-600 text-sm px-4 py-3 rounded-md border border-green-600/20">
+                      {saveMessage}
+                    </div>
+                  )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <select
-                      id="status"
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value as ApplicationStatus)}
-                    >
-                      <option value="PENDING">Pendente</option>
-                      <option value="SHORTLISTED">Shortlist</option>
-                      <option value="ON_HOLD">Em espera</option>
-                      <option value="REJECTED">Recusado</option>
-                    </select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="status">Status</Label>
+                      <select
+                        id="status"
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as ApplicationStatus)}
+                      >
+                        <option value="PENDING">Pendente</option>
+                        <option value="SHORTLISTED">Shortlist</option>
+                        <option value="ON_HOLD">Em espera</option>
+                        <option value="REJECTED">Recusado</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">Notas internas</Label>
+                      <Textarea
+                        id="notes"
+                        rows={3}
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Insights sobre a entrevista, pontos fortes, riscos ou próximos passos."
+                      />
+                      <p className="text-xs text-muted-foreground">Visível apenas para o seu time.</p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Notas internas</Label>
-                    <Textarea
-                      id="notes"
-                      rows={3}
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Insights sobre a entrevista, pontos fortes, riscos ou próximos passos."
-                    />
-                    <p className="text-xs text-muted-foreground">Visível apenas para o seu time.</p>
-                  </div>
-                </div>
 
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={saving}>
-                    {saving ? 'Salvando...' : 'Salvar triagem'}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={saving}>
+                      {saving ? 'Salvando...' : 'Salvar triagem'}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </main>

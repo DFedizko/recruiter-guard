@@ -12,9 +12,13 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
+  role         UserRole @default(RECRUITER)
+  phone        String?
+  avatarUrl    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   jobs         Job[]
+  submittedApplications Application[] @relation("ApplicationSubmittedBy")
 
   @@map("users")
 }
@@ -25,6 +29,7 @@ model Job {
   description  String       @db.Text
   requiredSkills Json
   userId       String
+  company      String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -49,6 +54,7 @@ model Application {
   id                String    @id @default(uuid())
   jobId             String
   candidateId       String
+  submittedById     String?
   originalResumeText String   @db.Text
   sanitizedResumeText String  @db.Text
   extractedSkills   Json
@@ -59,8 +65,10 @@ model Application {
   updatedAt         DateTime  @updatedAt
   job               Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
   candidate         Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  submittedBy       User?     @relation("ApplicationSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
 
   @@map("applications")
+  @@unique([jobId, submittedById])
 }
 
 enum ApplicationStatus {
@@ -68,4 +76,10 @@ enum ApplicationStatus {
   SHORTLISTED
   ON_HOLD
   REJECTED
+}
+
+enum UserRole {
+  ADMIN
+  RECRUITER
+  CANDIDATE
 }

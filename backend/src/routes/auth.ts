@@ -6,7 +6,7 @@ export const authRouter = express.Router();
 
 authRouter.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role, phone, avatarUrl } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
@@ -26,11 +26,17 @@ authRouter.post('/register', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
+    const allowedRoles = ['ADMIN', 'RECRUITER', 'CANDIDATE'];
+    const roleValue = allowedRoles.includes(role) ? role : 'RECRUITER';
+
     const user = await prisma.user.create({
       data: {
         name,
         email,
-        passwordHash
+        passwordHash,
+        role: roleValue as any,
+        phone: phone || null,
+        avatarUrl: avatarUrl || null
       }
     });
 
@@ -45,7 +51,10 @@ authRouter.post('/register', async (req, res) => {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        avatarUrl: user.avatarUrl
       }
     });
   } catch (error) {
@@ -87,7 +96,10 @@ authRouter.post('/login', async (req, res) => {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        avatarUrl: user.avatarUrl
       }
     });
   } catch (error) {
@@ -114,7 +126,10 @@ authRouter.get('/me', async (req, res) => {
       select: {
         id: true,
         name: true,
-        email: true
+        email: true,
+        role: true,
+        phone: true,
+        avatarUrl: true
       }
     });
 
@@ -128,4 +143,3 @@ authRouter.get('/me', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-

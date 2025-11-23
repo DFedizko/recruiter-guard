@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 
 export interface AuthRequest extends Request {
   userId?: string;
+  userRole?: string;
 }
 
 export async function requireAuth(
@@ -26,6 +27,7 @@ export async function requireAuth(
     }
 
     req.userId = user.id;
+    req.userRole = user.role;
     next();
   } catch (error) {
     console.error('Auth error:', error);

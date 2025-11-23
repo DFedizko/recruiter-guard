@@ -6,6 +6,48 @@ export const applicationsRouter = express.Router();
 
 applicationsRouter.use(requireAuth);
 
+applicationsRouter.get('/me', async (req: AuthRequest, res) => {
+  try {
+    const applications = await prisma.application.findMany({
+      where: {
+        submittedById: req.userId!
+      },
+      include: {
+        job: {
+          include: {
+            user: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    const payload = applications.map(app => ({
+      id: app.id,
+      matchScore: app.matchScore,
+      status: app.status,
+      createdAt: app.createdAt,
+      job: {
+        id: app.job.id,
+        title: app.job.title,
+        company: app.job.company,
+        user: {
+          id: app.job.user.id,
+          name: app.job.user.name,
+          role: app.job.user.role
+        }
+      }
+    }));
+
+    res.json(payload);
+  } catch (error) {
+    console.error('My applications fetch error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 applicationsRouter.get('/:id', async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
@@ -18,7 +60,8 @@ applicationsRouter.get('/:id', async (req: AuthRequest, res) => {
           include: {
             user: true
           }
-        }
+        },
+        submittedBy: true
       }
     });
 
@@ -26,7 +69,11 @@ applicationsRouter.get('/:id', async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Application not found' });
     }
 
-    if (application.job.userId !== req.userId) {
+    const isAdmin = req.userRole === 'ADMIN';
+    const isOwner = application.job.userId === req.userId;
+    const isApplicant = application.submittedById && application.submittedById === req.userId;
+
+    if (!isAdmin && !isOwner && !isApplicant) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -37,8 +84,15 @@ applicationsRouter.get('/:id', async (req: AuthRequest, res) => {
         id: application.job.id,
         title: application.job.title,
         description: application.job.description,
-        requiredSkills: application.job.requiredSkills
+        requiredSkills: application.job.requiredSkills,
+        user: {
+          id: application.job.user.id,
+          name: application.job.user.name,
+          email: application.job.user.email,
+          role: application.job.user.role
+        }
       },
+      submittedBy: application.submittedBy,
       extractedSkills: application.extractedSkills,
       matchScore: application.matchScore,
       status: application.status,
@@ -75,7 +129,9 @@ applicationsRouter.patch('/:id', async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Application not found' });
     }
 
-    if (application.job.userId !== req.userId) {
+    const isAdmin = req.userRole === 'ADMIN';
+    const isOwner = application.job.userId === req.userId;
+    if (!isAdmin && !isOwner) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -87,7 +143,12 @@ applicationsRouter.patch('/:id', async (req: AuthRequest, res) => {
       },
       include: {
         candidate: true,
-        job: true
+        job: {
+          include: {
+            user: true
+          }
+        },
+        submittedBy: true
       }
     });
 
@@ -98,8 +159,15 @@ applicationsRouter.patch('/:id', async (req: AuthRequest, res) => {
         id: updated.job.id,
         title: updated.job.title,
         description: updated.job.description,
-        requiredSkills: updated.job.requiredSkills
+        requiredSkills: updated.job.requiredSkills,
+        user: {
+          id: updated.job.user.id,
+          name: updated.job.user.name,
+          email: updated.job.user.email,
+          role: updated.job.user.role
+        }
       },
+      submittedBy: updated.submittedBy,
       extractedSkills: updated.extractedSkills,
       matchScore: updated.matchScore,
       status: updated.status,
@@ -111,6 +179,37 @@ applicationsRouter.patch('/:id', async (req: AuthRequest, res) => {
     });
   } catch (error) {
     console.error('Application update error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+applicationsRouter.delete('/:id', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    const application = await prisma.application.findUnique({
+      where: { id },
+      include: {
+        job: true
+      }
+    });
+
+    if (!application) {
+      return res.status(404).json({ error: 'Application not found' });
+    }
+
+    const isAdmin = req.userRole === 'ADMIN';
+    const isApplicant = application.submittedById === req.userId;
+
+    if (!isAdmin && !isApplicant) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    await prisma.application.delete({ where: { id } });
+
+    res.json({ message: 'Application deleted' });
+  } catch (error) {
+    console.error('Application delete error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -18,10 +18,15 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   return response.json();
 }
 
-export async function register(name: string, email: string, password: string) {
+export async function register(
+  name: string,
+  email: string,
+  password: string,
+  options?: { role?: 'ADMIN' | 'RECRUITER' | 'CANDIDATE'; phone?: string; avatarUrl?: string }
+) {
   return fetchAPI('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ name, email, password, ...options }),
   });
 }
 
@@ -50,7 +55,7 @@ export async function getJob(id: string) {
   return fetchAPI(`/api/jobs/${id}`);
 }
 
-export async function createJob(data: { title: string; description: string; requiredSkills: string[] }) {
+export async function createJob(data: { title: string; description: string; requiredSkills: string[]; company?: string }) {
   return fetchAPI('/api/jobs', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -63,6 +68,12 @@ export async function getJobApplications(jobId: string, options?: { status?: str
   if (options?.order) params.set('order', options.order);
   const suffix = params.toString() ? `?${params.toString()}` : '';
   return fetchAPI(`/api/jobs/${jobId}/applications${suffix}`);
+}
+
+export async function deleteJob(id: string) {
+  return fetchAPI(`/api/jobs/${id}`, {
+    method: 'DELETE',
+  });
 }
 
 export async function getApplication(id: string) {
@@ -82,20 +93,18 @@ export async function updateApplication(
   });
 }
 
+export async function getMyApplications() {
+  return fetchAPI('/api/applications/me');
+}
+
 export async function uploadApplication(
   jobId: string,
   data: {
-    fullName: string;
-    email: string;
-    phone?: string;
     resumeText?: string;
     resumeFile?: File;
   }
 ) {
   const formData = new FormData();
-  formData.append('fullName', data.fullName);
-  formData.append('email', data.email);
-  if (data.phone) formData.append('phone', data.phone);
   if (data.resumeText) formData.append('resumeText', data.resumeText);
   if (data.resumeFile) formData.append('resume', data.resumeFile);
 
@@ -111,4 +120,10 @@ export async function uploadApplication(
   }
 
   return response.json();
+}
+
+export async function deleteApplication(id: string) {
+  return fetchAPI(`/api/applications/${id}`, {
+    method: 'DELETE',
+  });
 }
