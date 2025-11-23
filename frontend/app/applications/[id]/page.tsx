@@ -3,12 +3,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getApplication } from '@/lib/api';
+import { getApplication, updateApplication } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft } from 'lucide-react';
+
+type ApplicationStatus = 'PENDING' | 'SHORTLISTED' | 'ON_HOLD' | 'REJECTED';
 
 interface Application {
   id: string;
@@ -27,8 +30,29 @@ interface Application {
   extractedSkills: string[];
   matchScore: number;
   sanitizedResumeText: string;
+  status: ApplicationStatus;
+  notes?: string | null;
   createdAt: string;
 }
+
+const STATUS_META: Record<ApplicationStatus, { label: string; className: string }> = {
+  PENDING: {
+    label: 'Pendente',
+    className: 'bg-muted text-foreground border-muted',
+  },
+  SHORTLISTED: {
+    label: 'Shortlist',
+    className: 'bg-green-600 text-white border-green-600',
+  },
+  ON_HOLD: {
+    label: 'Em espera',
+    className: 'bg-amber-500 text-white border-amber-500',
+  },
+  REJECTED: {
+    label: 'Recusado',
+    className: 'bg-destructive text-destructive-foreground border-destructive',
+  },
+};
 
 export default function ApplicationDetailPage() {
   const router = useRouter();
@@ -37,11 +61,18 @@ export default function ApplicationDetailPage() {
 
   const [application, setApplication] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<ApplicationStatus>('PENDING');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveMessage, setSaveMessage] = useState('');
 
   const loadApplication = useCallback(async () => {
     try {
       const data = await getApplication(applicationId);
       setApplication(data);
+      setStatus(data.status);
+      setNotes(data.notes || '');
     } catch (error) {
       console.error('Failed to load application:', error);
       router.push('/dashboard');
@@ -53,6 +84,25 @@ export default function ApplicationDetailPage() {
   useEffect(() => {
     loadApplication();
   }, [loadApplication]);
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaveError('');
+    setSaveMessage('');
+    setSaving(true);
+
+    try {
+      const updated = await updateApplication(applicationId, { status, notes });
+      setApplication(updated);
+      setStatus(updated.status);
+      setNotes(updated.notes || '');
+      setSaveMessage('Triagem atualizada');
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Não foi possível salvar');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading || !application) {
     return (
@@ -67,15 +117,15 @@ export default function ApplicationDetailPage() {
   return (
     <main className="flex-1 bg-background">
       <div className="max-w-5xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <Button variant="ghost" asChild className="mb-6">
-            <Link href={`/jobs/${application.job.id}`}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar à Vaga
-            </Link>
-          </Button>
+        <Button variant="ghost" asChild className="mb-6">
+          <Link href={`/jobs/${application.job.id}`}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar à Vaga
+          </Link>
+        </Button>
+        <div className="px-4 py-6 sm:px-0 flex flex-col gap-6">
 
-          <Card className="mb-6">
+          <Card>
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
@@ -87,11 +137,22 @@ export default function ApplicationDetailPage() {
                     <CardDescription>{application.candidate.phone}</CardDescription>
                   )}
                 </div>
-                <div className="text-right">
-                  <Label className="text-sm text-muted-foreground mb-1 block">Pontuação</Label>
-                  <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-2xl px-4 py-2">
-                    {application.matchScore.toFixed(1)}%
-                  </Badge>
+                <div className="text-right space-y-3">
+                  <div>
+                    <Label className="text-sm text-muted-foreground mb-1 block">Pontuação</Label>
+                    <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-2xl px-4 py-2">
+                      {application.matchScore.toFixed(1)}%
+                    </Badge>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground mb-1 block">Status</Label>
+                    <Badge
+                      variant="outline"
+                      className={`${STATUS_META[status]?.className} text-sm px-3 py-1`}
+                    >
+                      {STATUS_META[status]?.label || 'Sem status'}
+                    </Badge>
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -130,9 +191,63 @@ export default function ApplicationDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Triagem e Notas</CardTitle>
+              <CardDescription>Classifique o candidato e registre observações internas</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleUpdate} className="space-y-4">
+                {saveError && (
+                  <div className="bg-destructive/15 text-destructive text-sm px-4 py-3 rounded-md border border-destructive/20">
+                    {saveError}
+                  </div>
+                )}
+                {saveMessage && (
+                  <div className="bg-green-600/15 text-green-600 text-sm px-4 py-3 rounded-md border border-green-600/20">
+                    {saveMessage}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <select
+                      id="status"
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as ApplicationStatus)}
+                    >
+                      <option value="PENDING">Pendente</option>
+                      <option value="SHORTLISTED">Shortlist</option>
+                      <option value="ON_HOLD">Em espera</option>
+                      <option value="REJECTED">Recusado</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Notas internas</Label>
+                    <Textarea
+                      id="notes"
+                      rows={3}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Insights sobre a entrevista, pontos fortes, riscos ou próximos passos."
+                    />
+                    <p className="text-xs text-muted-foreground">Visível apenas para o seu time.</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={saving}>
+                    {saving ? 'Salvando...' : 'Salvar triagem'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </main>
   );
 }
-

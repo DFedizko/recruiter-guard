@@ -178,7 +178,8 @@ jobsRouter.post('/:id/applications', async (req: AuthRequest, res) => {
         originalResumeText,
         sanitizedResumeText,
         extractedSkills,
-        matchScore
+        matchScore,
+        status: 'PENDING'
       },
       include: {
         candidate: true,
@@ -196,6 +197,7 @@ jobsRouter.post('/:id/applications', async (req: AuthRequest, res) => {
 jobsRouter.get('/:id/applications', async (req: AuthRequest, res) => {
   try {
     const { id: jobId } = req.params;
+    const { status, order } = req.query as { status?: string; order?: string };
 
     const job = await prisma.job.findFirst({
       where: {
@@ -208,15 +210,20 @@ jobsRouter.get('/:id/applications', async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
 
+    const whereClause: any = { jobId };
+    if (status && ['PENDING', 'SHORTLISTED', 'ON_HOLD', 'REJECTED'].includes(status)) {
+      whereClause.status = status;
+    }
+
+    const orderDirection = order === 'asc' ? 'asc' : 'desc';
+
     const applications = await prisma.application.findMany({
-      where: {
-        jobId
-      },
+      where: whereClause,
       include: {
         candidate: true
       },
       orderBy: {
-        matchScore: 'desc'
+        matchScore: orderDirection
       }
     });
 
@@ -225,6 +232,8 @@ jobsRouter.get('/:id/applications', async (req: AuthRequest, res) => {
       candidate: app.candidate,
       extractedSkills: app.extractedSkills,
       matchScore: app.matchScore,
+      status: app.status,
+      notes: app.notes,
       createdAt: app.createdAt,
       updatedAt: app.updatedAt
     }));
@@ -235,4 +244,3 @@ jobsRouter.get('/:id/applications', async (req: AuthRequest, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-

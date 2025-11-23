@@ -21,6 +21,8 @@ interface Job {
   requiredSkills: string[];
 }
 
+type ApplicationStatus = 'PENDING' | 'SHORTLISTED' | 'ON_HOLD' | 'REJECTED';
+
 interface Application {
   id: string;
   candidate: {
@@ -30,7 +32,28 @@ interface Application {
   };
   extractedSkills: string[];
   matchScore: number;
+  status: ApplicationStatus;
+  notes?: string | null;
 }
+
+const STATUS_META: Record<ApplicationStatus, { label: string; className: string }> = {
+  PENDING: {
+    label: 'Pendente',
+    className: 'bg-muted text-foreground border-muted',
+  },
+  SHORTLISTED: {
+    label: 'Shortlist',
+    className: 'bg-green-600 text-white border-green-600',
+  },
+  ON_HOLD: {
+    label: 'Em espera',
+    className: 'bg-amber-500 text-white border-amber-500',
+  },
+  REJECTED: {
+    label: 'Recusado',
+    className: 'bg-destructive text-destructive-foreground border-destructive',
+  },
+};
 
 export default function JobDetailPage() {
   const router = useRouter();
@@ -40,6 +63,8 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<Job | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | ApplicationStatus>('ALL');
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -52,8 +77,11 @@ export default function JobDetailPage() {
 
   useEffect(() => {
     loadJob();
-    loadApplications();
   }, [jobId]);
+
+  useEffect(() => {
+    loadApplications();
+  }, [statusFilter, order]);
 
   const loadJob = async () => {
     try {
@@ -69,7 +97,10 @@ export default function JobDetailPage() {
 
   const loadApplications = async () => {
     try {
-      const data = await getJobApplications(jobId);
+      const data = await getJobApplications(jobId, {
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
+        order,
+      });
       setApplications(data);
     } catch (error) {
       console.error('Failed to load applications:', error);
@@ -154,24 +185,52 @@ export default function JobDetailPage() {
 
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Candidaturas</CardTitle>
-                <Button
-                  onClick={() => setShowUploadForm(!showUploadForm)}
-                  variant={showUploadForm ? "outline" : "default"}
-                >
-                  {showUploadForm ? (
-                    <>
-                      <X className="mr-2 h-4 w-4" />
-                      Cancelar
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Enviar Candidato
-                    </>
-                  )}
-                </Button>
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle>Candidaturas</CardTitle>
+                  <div className="text-sm text-muted-foreground">Filtre por status e ordene pela pontuação</div>
+                </div>
+                <div className="flex flex-wrap gap-2 md:items-center">
+                  <label className="text-sm text-muted-foreground">Status:</label>
+                  <select
+                    className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as 'ALL' | ApplicationStatus)}
+                  >
+                    <option value="ALL">Todos</option>
+                    <option value="PENDING">Pendente</option>
+                    <option value="SHORTLISTED">Shortlist</option>
+                    <option value="ON_HOLD">Em espera</option>
+                    <option value="REJECTED">Recusado</option>
+                  </select>
+
+                  <label className="text-sm text-muted-foreground">Ordenar:</label>
+                  <select
+                    className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={order}
+                    onChange={(e) => setOrder(e.target.value as 'asc' | 'desc')}
+                  >
+                    <option value="desc">Maior pontuação primeiro</option>
+                    <option value="asc">Menor pontuação primeiro</option>
+                  </select>
+
+                  <Button
+                    onClick={() => setShowUploadForm(!showUploadForm)}
+                    variant={showUploadForm ? "outline" : "default"}
+                  >
+                    {showUploadForm ? (
+                      <>
+                        <X className="mr-2 h-4 w-4" />
+                        Cancelar
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Enviar Candidato
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -250,6 +309,7 @@ export default function JobDetailPage() {
                       <TableRow>
                         <TableHead>Candidato</TableHead>
                         <TableHead>Pontuação</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Habilidades</TableHead>
                         <TableHead>Ações</TableHead>
                       </TableRow>
@@ -264,6 +324,14 @@ export default function JobDetailPage() {
                           <TableCell>
                             <Badge variant="default" className="bg-green-600 hover:bg-green-700">
                               {app.matchScore.toFixed(1)}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={STATUS_META[app.status]?.className}
+                            >
+                              {STATUS_META[app.status]?.label || 'Sem status'}
                             </Badge>
                           </TableCell>
                           <TableCell>

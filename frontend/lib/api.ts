@@ -57,12 +57,29 @@ export async function createJob(data: { title: string; description: string; requ
   });
 }
 
-export async function getJobApplications(jobId: string) {
-  return fetchAPI(`/api/jobs/${jobId}/applications`);
+export async function getJobApplications(jobId: string, options?: { status?: string; order?: 'asc' | 'desc' }) {
+  const params = new URLSearchParams();
+  if (options?.status) params.set('status', options.status);
+  if (options?.order) params.set('order', options.order);
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return fetchAPI(`/api/jobs/${jobId}/applications${suffix}`);
 }
 
 export async function getApplication(id: string) {
   return fetchAPI(`/api/applications/${id}`);
+}
+
+export async function updateApplication(
+  id: string,
+  data: {
+    status?: 'PENDING' | 'SHORTLISTED' | 'ON_HOLD' | 'REJECTED';
+    notes?: string;
+  }
+) {
+  return fetchAPI(`/api/applications/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
 }
 
 export async function uploadApplication(
@@ -95,4 +112,3 @@ export async function uploadApplication(
 
   return response.json();
 }
-
