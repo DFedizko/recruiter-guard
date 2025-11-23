@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser } from '@/lib/api';
+import { getCurrentUser, updateAvatar } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
@@ -24,15 +24,56 @@ export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [avatarError, setAvatarError] = useState('');
+  const [updatingAvatar, setUpdatingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2MB
+
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Falha ao ler o arquivo'));
+      reader.readAsDataURL(file);
+    });
 
   useEffect(() => {
     getCurrentUser()
       .then((data) => setUser(data.user as UserProfile))
       .catch(() => router.push('/login'))
       .finally(() => setLoading(false));
-
-    console.log(user);
   }, [router]);
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (file?: File) => {
+    if (!file || !user) return;
+
+    if (file.size > MAX_AVATAR_BYTES) {
+      setAvatarError('A imagem deve ter no máximo 2MB.');
+      return;
+    }
+
+    setAvatarError('');
+    setUpdatingAvatar(true);
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const response = await updateAvatar(dataUrl);
+      setUser(response.user as UserProfile);
+      setAvatarError('');
+    } catch (error: any) {
+      setAvatarError(error?.message || 'Não foi possível atualizar a foto.');
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setUpdatingAvatar(false);
+    }
+  };
 
   if (loading || !user) {
     return (
@@ -48,7 +89,27 @@ export default function ProfilePage() {
         <Card>
           <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <Avatar src={user.avatarUrl || undefined} fallback={user.name} className="h-14 w-14" />
+              <div className="relative">
+                <button
+                  type="button"
+                  className="relative inline-flex items-center justify-center rounded-full ring-2 ring-transparent transition hover:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={handleAvatarClick}
+                  aria-label="Alterar foto de perfil"
+                  disabled={updatingAvatar}
+                >
+                  <Avatar src={user?.avatarUrl} fallback={user?.name} profilePage />
+                  <span className="pointer-events-none absolute inset-0 rounded-full bg-black/30 opacity-0 transition hover:opacity-100 text-[10px] text-primary-foreground flex items-center justify-center">
+                    {updatingAvatar ? 'Atualizando...' : 'Trocar foto'}
+                  </span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleAvatarChange(e.target.files?.[0])}
+                />
+              </div>
               <div>
                 <CardTitle className="text-2xl leading-tight">{user.name}</CardTitle>
                 <CardDescription>{user.email}</CardDescription>
@@ -74,6 +135,10 @@ export default function ProfilePage() {
               <p className="text-sm text-muted-foreground">
                 Estas informações são usadas para identificar suas ações na plataforma (criação de vagas, candidaturas e gestão).
               </p>
+              <p className="text-xs text-muted-foreground mt-2">Clique no avatar para enviar uma nova foto (até 2MB).</p>
+              {avatarError && (
+                <p className="text-xs text-destructive mt-1">{avatarError}</p>
+              )}
             </section>
           </CardContent>
         </Card>
@@ -92,4 +157,3 @@ function roleLabel(role: Role) {
       return 'Candidato';
   }
 }
-

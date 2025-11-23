@@ -47,6 +47,13 @@ export async function getCurrentUser() {
   return fetchAPI('/api/auth/me');
 }
 
+export async function updateAvatar(avatar: string | null) {
+  return fetchAPI('/api/auth/avatar', {
+    method: 'PATCH',
+    body: JSON.stringify({ avatar }),
+  });
+}
+
 export async function getJobs() {
   return fetchAPI('/api/jobs');
 }

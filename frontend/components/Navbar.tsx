@@ -65,7 +65,7 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           <Button variant="ghost" asChild>
             <Link href="/profile" className="flex items-center gap-2">
-              <Avatar src={user?.avatarUrl} fallback={user?.name ?? ""} />
+              <Avatar src={user?.avatarUrl} fallback={user?.name} />
               <span className="hidden md:inline text-sm font-medium">Perfil</span>
             </Link>
           </Button>

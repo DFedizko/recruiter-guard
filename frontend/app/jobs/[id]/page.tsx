@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getJob, getJobApplications, uploadApplication, getCurrentUser, deleteJob } from '@/lib/api';
-import { getMyApplications } from '@/lib/api';
+import { getJob, getJobApplications, uploadApplication, getCurrentUser, deleteJob, getMyApplications } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +12,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { HTMLContent } from '@/components/ui/html-content';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { ArrowLeft, Upload, X, Trash } from 'lucide-react';
 
 interface Job {
@@ -85,6 +95,9 @@ export default function JobDetailPage() {
   const [hasApplied, setHasApplied] = useState(false);
   const [canViewApplications, setCanViewApplications] = useState(true);
   const [isOwnJob, setIsOwnJob] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingJob, setDeletingJob] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     loadJob();
@@ -151,13 +164,17 @@ export default function JobDetailPage() {
 
   const handleDeleteJob = async () => {
     if (!job) return;
-    const confirmed = window.confirm('Deseja excluir esta vaga?');
-    if (!confirmed) return;
+    setDeleteError('');
+    setDeletingJob(true);
     try {
       await deleteJob(job.id);
+      setDeleteDialogOpen(false);
       router.push('/dashboard');
     } catch (error) {
       console.error('Failed to delete job:', error);
+      setDeleteError('Não foi possível excluir a vaga. Tente novamente.');
+    } finally {
+      setDeletingJob(false);
     }
   };
 
@@ -230,10 +247,44 @@ export default function JobDetailPage() {
                   </p>
                 </div>
                 {canDeleteJob && (
-                  <Button variant="destructive" size="sm" onClick={handleDeleteJob}>
-                    <Trash className="mr-2 h-4 w-4" />
-                    Excluir vaga
-                  </Button>
+                  <AlertDialog
+                    open={deleteDialogOpen}
+                    onOpenChange={(open) => {
+                      setDeleteError('');
+                      setDeleteDialogOpen(open);
+                    }}
+                  >
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        <Trash className="mr-2 h-4 w-4" />
+                        Excluir vaga
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir vaga</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Tem certeza de que deseja excluir esta vaga? Essa ação não pode ser desfeita e
+                          removerá todos os dados associados.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      {deleteError && (
+                        <p className="text-sm text-destructive">{deleteError}</p>
+                      )}
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deletingJob}>
+                          Cancelar
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteJob}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          disabled={deletingJob}
+                        >
+                          {deletingJob ? 'Excluindo...' : 'Confirmar exclusão'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
             </CardHeader>

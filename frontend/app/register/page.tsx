@@ -15,10 +15,39 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState('');
   const [role, setRole] = useState<'ADMIN' | 'RECRUITER' | 'CANDIDATE'>('RECRUITER');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2MB
+
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Falha ao ler o arquivo'));
+      reader.readAsDataURL(file);
+    });
+
+  const handleAvatarChange = async (file?: File) => {
+    if (!file) return;
+
+    if (file.size > MAX_AVATAR_BYTES) {
+      setAvatarError('A imagem deve ter no máximo 2MB.');
+      setAvatarPreview(null);
+      return;
+    }
+
+    try {
+      setAvatarError('');
+      const dataUrl = await readFileAsDataUrl(file);
+      setAvatarPreview(dataUrl);
+    } catch (err) {
+      setAvatarError('Não foi possível ler o arquivo.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +58,7 @@ export default function RegisterPage() {
       await register(name, email, password, {
         role,
         phone: phone || undefined,
-        avatarUrl: avatarUrl || undefined,
+        avatarUrl: avatarPreview || undefined,
       });
       router.push('/dashboard');
     } catch (err) {
@@ -93,16 +122,24 @@ export default function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="avatar">Foto (URL)</Label>
-                <Input
-                  id="avatar"
-                  name="avatar"
-                  type="url"
-                  placeholder="https://..."
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">Use um link público para sua foto.</p>
+                <Label htmlFor="avatar">Foto (opcional)</Label>
+                <div className="flex items-center gap-3">
+
+                  {avatarPreview && (
+                    <img src={avatarPreview} alt="Pré-visualização do avatar" className="h-12 w-12 rounded-full" />
+                  )}
+
+                  <Input
+                    id="avatar"
+                    name="avatar"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleAvatarChange(e.target.files?.[0])}
+                    className="cursor-pointer"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Formatos de imagem populares, até 2MB.</p>
+                {avatarError && <p className="text-xs text-destructive">{avatarError}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Perfil</Label>

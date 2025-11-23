@@ -1,6 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma';
+import { requireAuth, type AuthRequest } from '../middleware/auth';
 
 export const authRouter = express.Router();
 
@@ -140,6 +141,38 @@ authRouter.get('/me', async (req, res) => {
     res.json({ user });
   } catch (error) {
     console.error('Auth check error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+authRouter.patch('/avatar', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const avatar = req.body?.avatar;
+
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (avatar !== null && avatar !== undefined && typeof avatar !== 'string') {
+      return res.status(400).json({ error: 'Formato de avatar inválido' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: { avatarUrl: avatar || null },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        avatarUrl: true
+      }
+    });
+
+    res.json({ user });
+  } catch (error) {
+    console.error('Avatar update error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

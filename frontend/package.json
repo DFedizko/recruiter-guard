@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
     "@tiptap/extension-color": "^3.11.0",
     "@tiptap/extension-placeholder": "^3.11.0",
