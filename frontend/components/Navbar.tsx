@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Menu, X } from 'lucide-react';
 import { logout, getCurrentUser } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import ThemeToggle from '@/components/ThemeToggle';
+import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Vagas' },
@@ -18,6 +20,7 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<null | { name: string; avatarUrl?: string | null }>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const noNavbarPaths = ["/login", "/register"];
 
@@ -27,6 +30,10 @@ export default function Navbar() {
     getCurrentUser()
       .then((data) => setUser(data.user))
       .catch(() => setUser(null));
+  }, []);
+
+  useEffect(() => {
+    setIsMenuOpen(false);
   }, []);
 
   const handleLogout = async () => {
@@ -45,16 +52,75 @@ export default function Navbar() {
         <Link href="/dashboard" className="text-xl font-bold text-primary">
           RecruiterGuard
         </Link>
-        <ul className="flex items-center gap-4">
+
+        <div className="hidden md:flex items-center gap-6">
+          <ul className="flex items-center gap-4">
+            {NAV_ITEMS.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      'text-sm font-medium transition-colors hover:text-primary',
+                      isActive && 'text-primary'
+                    )}
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Button variant="ghost" asChild>
+              <Link href="/profile" className="flex items-center gap-2">
+                <Avatar src={user?.avatarUrl} fallback={user?.name} />
+                <span className="hidden md:inline text-sm font-medium">Perfil</span>
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+            >
+              Sair
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMenuOpen((open) => !open)}
+            aria-label="Abrir menu"
+            aria-expanded={isMenuOpen}
+          >
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          'md:hidden border-t bg-background transition-all duration-150',
+          isMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
+        )}
+      >
+        <ul className="flex flex-col gap-3 px-4 py-3">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`text-sm font-medium transition-colors hover:text-primary ${
+                  className={cn(
+                    'block rounded-md px-2 py-1 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
                     isActive && 'text-primary'
-                  }`}
+                  )}
                   aria-current={isActive ? 'page' : undefined}
                 >
                   {item.label}
@@ -63,18 +129,14 @@ export default function Navbar() {
             );
           })}
         </ul>
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          <Button variant="ghost" asChild>
+        <div className="flex items-center justify-between px-4 pb-4 pt-1 gap-3">
+          <Button variant="ghost" asChild className="flex-1 justify-start">
             <Link href="/profile" className="flex items-center gap-2">
               <Avatar src={user?.avatarUrl} fallback={user?.name} />
-              <span className="hidden md:inline text-sm font-medium">Perfil</span>
+              <span className="text-sm font-medium">Perfil</span>
             </Link>
           </Button>
-          <Button
-            variant="ghost"
-            onClick={handleLogout}
-          >
+          <Button variant="ghost" onClick={handleLogout}>
             Sair
           </Button>
         </div>
