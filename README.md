@@ -66,3 +66,13 @@ Plataforma de recrutamento ético que anonimiza currículos, extrai habilidades 
 ├── docker-compose.yml     # MySQL
 └── package.json           # workspaces
 ```
+
+## Imagens do Sistema
+
+### Dark
+
+<img width="3024" height="2314" alt="screencapture-localhost-3000-insights-2025-11-23-13_31_34" src="https://github.com/user-attachments/assets/c8597cc6-9fcc-4d8b-86eb-0621d2fdeb2c" />
+
+### Light
+
+<img width="3024" height="2314" alt="screencapture-localhost-3000-insights-2025-11-23-15_55_13" src="https://github.com/user-attachments/assets/7c94ae6a-412d-420e-a85b-aba97bffcd94" />
