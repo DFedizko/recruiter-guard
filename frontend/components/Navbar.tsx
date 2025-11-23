@@ -27,14 +27,26 @@ export default function Navbar() {
   const showNavbar = !noNavbarPaths.includes(pathname);
 
   useEffect(() => {
+    if (!showNavbar) return;
+
+    let isSubscribed = true;
+
     getCurrentUser()
-      .then((data) => setUser(data.user))
-      .catch(() => setUser(null));
-  }, []);
+      .then((data) => {
+        if (isSubscribed) setUser(data.user);
+      })
+      .catch(() => {
+        if (isSubscribed) setUser(null);
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [showNavbar]);
 
   useEffect(() => {
     setIsMenuOpen(false);
-  }, []);
+  }, [pathname]);
 
   const handleLogout = async () => {
     try {
