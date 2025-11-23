@@ -2,6 +2,8 @@
 
 Plataforma de recrutamento ético que anonimiza currículos, extrai habilidades e ranqueia candidatos por aderência às vagas.
 
+*Na RecruiterGuard a avaliação é baseada em competência, não em aparência.*
+
 ## Dependências
 - Node.js 20.9.0+
 - Docker e Docker Compose (MySQL em 3306)
