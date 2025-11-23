@@ -184,6 +184,10 @@ jobsRouter.post('/:id/applications', async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
 
+    if (job.userId === req.userId) {
+      return res.status(403).json({ error: 'Cannot apply to your own job' });
+    }
+
     const canApply = ['ADMIN', 'RECRUITER', 'CANDIDATE'].includes(req.userRole);
     if (!canApply) {
       return res.status(403).json({ error: 'Forbidden' });

@@ -84,7 +84,7 @@ export default function JobDetailPage() {
   const [currentUser, setCurrentUser] = useState<null | { id: string; role: 'ADMIN' | 'RECRUITER' | 'CANDIDATE' }>(null);
   const [hasApplied, setHasApplied] = useState(false);
   const [canViewApplications, setCanViewApplications] = useState(true);
-  const [checkingMine, setCheckingMine] = useState(false);
+  const [isOwnJob, setIsOwnJob] = useState(false);
 
   useEffect(() => {
     loadJob();
@@ -95,24 +95,27 @@ export default function JobDetailPage() {
   }, [statusFilter, order, currentUser]);
 
   useEffect(() => {
+    if (job && currentUser) {
+      setIsOwnJob(job.user?.id === currentUser.id);
+    }
+  }, [job, currentUser]);
+
+  useEffect(() => {
     getCurrentUser()
       .then((data) => {
         const userShape = { id: data.user.id, role: data.user.role as 'ADMIN' | 'RECRUITER' | 'CANDIDATE' };
         setCurrentUser(userShape);
         loadApplications();
         if (data.user.role === 'CANDIDATE' || data.user.role === 'RECRUITER' || data.user.role === 'ADMIN') {
-          setCheckingMine(true);
           getMyApplications()
             .then((apps) => {
               const already = apps.some((app: any) => app.job.id === jobId);
               setHasApplied(already);
             })
             .catch(() => {})
-            .finally(() => setCheckingMine(false));
         }
       })
       .catch(() => setCurrentUser(null));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadJob = async () => {
@@ -146,20 +149,6 @@ export default function JobDetailPage() {
     }
   };
 
-  const loadMyApplications = async () => {
-    if (!currentUser) return;
-    setCheckingMine(true);
-    try {
-      const mine = await getMyApplications();
-      const applied = mine.some((app: any) => app.job.id === jobId);
-      setHasApplied(applied);
-    } catch (error) {
-      console.error('Failed to load my applications:', error);
-    } finally {
-      setCheckingMine(false);
-    }
-  };
-
   const handleDeleteJob = async () => {
     if (!job) return;
     const confirmed = window.confirm('Deseja excluir esta vaga?');
@@ -174,7 +163,7 @@ export default function JobDetailPage() {
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (hasApplied) {
+    if (hasApplied || isOwnJob) {
       return;
     }
     setUploadError('');
@@ -306,25 +295,19 @@ export default function JobDetailPage() {
                     <option value="asc">Menor pontuação primeiro</option>
                   </select>
 
-                  <Button
-                    onClick={() => !hasApplied && setShowUploadForm(!showUploadForm)}
-                    variant={showUploadForm ? "outline" : "default"}
-                    disabled={hasApplied}
-                  >
-                    {hasApplied ? (
-                      'Já enviada'
-                    ) : showUploadForm ? (
-                      <>
-                        <X className="mr-2 h-4 w-4" />
-                        Cancelar
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="mr-2 h-4 w-4" />
-                        Enviar candidatura
-                      </>
-                    )}
-                  </Button>
+                  { !isOwnJob &&
+                    <Button
+                      onClick={() => !hasApplied && !isOwnJob && setShowUploadForm(!showUploadForm)}
+                      variant={showUploadForm ? "outline" : "default"}
+                      disabled={hasApplied || isOwnJob}
+                    >
+                      {hasApplied
+                        ? 'Já enviada'
+                        : showUploadForm
+                            ? (<><X className="mr-2 h-4 w-4" />Cancelar</>)
+                            : (<><Upload className="mr-2 h-4 w-4" />Enviar candidatura</>)}
+                    </Button>
+                  }
                 </div>
               </div>
             </CardHeader>
@@ -332,7 +315,7 @@ export default function JobDetailPage() {
               {!canViewApplications && (
                 <p className="text-sm text-muted-foreground mb-4">Apenas o dono da vaga ou administradores podem ver as candidaturas.</p>
               )}
-              {showUploadForm && !hasApplied && (
+              {showUploadForm && !hasApplied && !isOwnJob && (
                 <form onSubmit={handleUploadSubmit} className="mb-6 p-4 bg-muted rounded-lg space-y-4">
                   {uploadError && (
                     <div className="bg-destructive/15 text-destructive text-sm px-4 py-3 rounded-md border border-destructive/20">

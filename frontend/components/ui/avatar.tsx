@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 export interface AvatarProps extends React.HTMLAttributes<HTMLSpanElement> {
   src?: string | null;
@@ -18,7 +19,7 @@ function getNameInitials(fullName: string | undefined) {
 
 export function Avatar({ src, alt, fallback, className, ...props }: AvatarProps) {
   const content = src ? (
-    <img
+    <Image
       src={src}
       alt={alt || ''}
       className="h-full w-full object-cover rounded-full"
