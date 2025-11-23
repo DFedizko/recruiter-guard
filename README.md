@@ -10,11 +10,13 @@ Plataforma de recrutamento ético que anonimiza currículos, extrai habilidades 
 - npm (workspace com `backend` e `frontend`)
 
 ## Como rodar
-1) Banco: `docker-compose up -d`.
-2) Backend: `cd backend && npm install && npm run db:push` (ou `npm run migrate`).
+1. Clone o repositório: `git clone https://github.com/DFedizko/recruiter-guard.git`
+2. Entre no diretório do projeto: `cd recruiter-guard`
+3. Rode o banco: `docker-compose up -d`.
+4. Rode o backend: `cd backend && npm install && npm run db:push`.
    - Seeds: `npm run db:seed` (usa `prisma/seed.ts`).
    - Dev: `npm run dev` (porta 3001).
-3) Frontend: `cd frontend && npm install && npm run dev` (porta 3000).
+5. Em outro terminal entre no repositório e rode o frontend: `cd frontend && npm install && npm run dev` (porta 3000).
 
 ## Roles e permissões
 - ADMIN: cria/edita/exclui vagas, vê todas, aplica, gerencia e deleta qualquer candidatura.
