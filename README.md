@@ -1,195 +1,139 @@
 # RecruiterGuard
 
-An ethical recruiting platform that anonymizes résumés and ranks candidates based on skills and experience, not on personal attributes.
+Uma plataforma de recrutamento ética que anonimiza currículos e classifica candidatos com base em habilidades e experiência, não em atributos pessoais.
 
 ## Tech Stack
 
 - **Backend**: Node.js + Express + TypeScript
-- **Frontend**: Next.js 14 (App Router) + TypeScript + TailwindCSS v4.1
+- **Frontend**: Next.js 16 (App Router) + TypeScript + TailwindCSS v4.1
 - **Database**: MySQL
 - **ORM**: Prisma
 
-## Prerequisites
+## Pré-requisitos
 
-- Node.js 18+ and npm
-- Docker and Docker Compose (for MySQL)
+- Node.js 20.9.0+
+- Docker e Docker Compose (para MySQL)
 
-## Setup Instructions
+## Instruções de Setup
 
-### 1. Start MySQL Database
+### 1. Inicie o banco de dados MySQL
 
 ```bash
 docker-compose up -d
 ```
 
-This will start a MySQL container on port 3306.
+Isso iniciará um contêiner MySQL na porta 3306.
 
-### 2. Backend Setup
+### 2. Configuração do back-end
 
 ```bash
 cd backend
 npm install
 ```
 
-Create a `.env` file in the `backend` directory (copy from `.env.example`):
+Executar migrações do Prisma:
 
-```bash
-cp .env.example .env
-```
-
-Or manually create `.env` with:
-
-```env
-DATABASE_URL="mysql://user:password@localhost:3306/recruiter_guard"
-SHADOW_DATABASE_URL="mysql://root:rootpassword@localhost:3306/recruiter_guard_shadow"
-PORT=3001
-SESSION_SECRET="your-secret-key-change-in-production"
-FRONTEND_URL="http://localhost:3000"
-```
-
-**Note**: The `SHADOW_DATABASE_URL` uses the root user to create a temporary shadow database for migrations. If you prefer, you can use `prisma db push` instead (see below).
-
-Run Prisma migrations:
-
-**Option 1: Using db push (recommended for development, no shadow DB needed)**
+**Opção 1: Usando o comando db push (recomendado para desenvolvimento, sem necessidade de banco de dados sombra)**
 ```bash
 npm run db:push
 ```
 
-**Option 2: Using migrations (for production, requires shadow database)**
+**Opção 2: Utilizando migrações (para produção, requer banco de dados sombra)**
 ```bash
-# Make sure SHADOW_DATABASE_URL is set in .env
 npm run migrate
 ```
 
-**Note**: For development, `db:push` is simpler and doesn't require a shadow database. For production, use migrations with a properly configured shadow database.
+**Nota:** Para desenvolvimento, `db:push` é mais simples e não requer um banco de dados sombra. Para produção, use migrações com um banco de dados sombra devidamente configurado.
 
-This will create the database schema.
+Isso criará o esquema do banco de dados.
 
-### 3. Frontend Setup
+### 3. Configuração do front-end
 
 ```bash
 cd frontend
 npm install
 ```
 
-Create a `.env.local` file in the `frontend` directory (copy from `.env.local.example`):
+## Rodando a aplicação
 
-```bash
-cp .env.local.example .env.local
-```
-
-Or manually create `.env.local` with:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
-```
-
-**Note**: This project uses Tailwind CSS v4.1, which uses CSS-first configuration (no `tailwind.config.js` needed). Customizations can be added directly in `app/globals.css` using the `@theme` directive.
-
-## Running the Application
-
-### Start Backend
+### Inicie o Backend
 
 ```bash
 cd backend
 npm run dev
 ```
 
-The backend API will be available at `http://localhost:3001`
+A API de backend estará disponível em `http://localhost:3001`.
 
-### Start Frontend
+### Inicie o Frontend
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:3000`
+A interface estará disponível em `http://localhost:3000`.
 
-## Usage
+## Uso
 
-1. **Register**: Create a new recruiter account at `http://localhost:3000/register`
-2. **Login**: Sign in at `http://localhost:3000/login`
-3. **Create Job**: Create a job posting with title, description, and required skills
-4. **Upload Candidates**: Upload candidate résumés (PDF, DOCX, or text) for a job
-5. **View Rankings**: See candidates ranked by match score based on skills
-6. **View Sanitized Résumés**: Review anonymized résumé text without PII
+1. **Cadastre-se**: Crie uma nova conta de recrutador em `http://localhost:3000/register`
+2. **Entre**: Faça login em `http://localhost:3000/login`
+3. **Crie uma vaga**: Crie um anúncio de vaga com título, descrição e habilidades necessárias
+4. **Envie candidatos**: Envie currículos de candidatos (PDF, DOCX ou texto) para uma vaga
+5. **Veja a classificação**: Veja os candidatos classificados por pontuação de compatibilidade com base nas habilidades
+6. **Veja currículos anonimizados**: Visualize o texto anonimizado do currículo, sem informações pessoais identificáveis
 
 ## Features
 
-- **Résumé Sanitization**: Automatically removes personal identifying information (PII) including:
-  - Names
-  - Email addresses
-  - Phone numbers
-  - Addresses
-  - Dates of birth
-  - Social media links
+- **Higienização de Currículo**: Remove automaticamente informações de identificação pessoal (PII), incluindo:
 
-- **Skill Extraction**: Extracts skills from résumé text using keyword matching
+- Nomes
+- Endereços de e-mail
+- Números de telefone
+- Endereços residenciais
+- Datas de nascimento
+- Links para redes sociais
 
-- **Match Scoring**: Calculates a match score based on overlap between job required skills and candidate skills
+- **Extração de Habilidades**: Extrai habilidades do texto do currículo usando correspondência de palavras-chave
 
-- **Ranked Listings**: Displays candidates sorted by match score
+- **Pontuação de Correspondência**: Calcula uma pontuação de correspondência com base na sobreposição entre as habilidades exigidas pela vaga e as habilidades do candidato
 
-## Project Structure
+- **Listagens Classificadas**: Exibe os candidatos classificados por pontuação de correspondência
+
+## Estrutura do Projeto
 
 ```
 .
 ├── backend/
 │   ├── src/
-│   │   ├── routes/        # API route handlers
-│   │   ├── services/      # Business logic (sanitization, scoring, etc.)
-│   │   ├── middleware/    # Auth middleware
+│   │   ├── routes/        # Rotas da API
+│   │   ├── services/      # Lógica de negócios (sanitização, pontuação, etc.)
+│   │   ├── middleware/    # Middleware de autenticação
 │   │   └── lib/           # Utilities (Prisma client)
-│   ├── prisma/            # Prisma schema and migrations
+│   ├── prisma/            # Prisma schema e migrations
 │   └── package.json
 ├── frontend/
-│   ├── app/               # Next.js App Router pages
-│   ├── components/        # React components
-│   ├── lib/               # API client utilities
+│   ├── app/               # Páginas da aplicação Next.js
+│   ├── components/        # Componentes
+│   ├── lib/               # Comunicação com a API
 │   └── package.json
-└── docker-compose.yml     # MySQL database setup
+└── docker-compose.yml     # Setup do MySQL
 ```
 
-## API Endpoints
+## Endpoints da API
 
 ### Auth
-- `POST /api/auth/register` - Register new user
+- `POST /api/auth/register` - Registra novo usuário
 - `POST /api/auth/login` - Login
 - `POST /api/auth/logout` - Logout
-- `GET /api/auth/me` - Get current user
+- `GET /api/auth/me` - Usuário atual
 
 ### Jobs
-- `POST /api/jobs` - Create job
-- `GET /api/jobs` - List jobs for logged-in user
-- `GET /api/jobs/:id` - Get job details
-- `POST /api/jobs/:id/applications` - Upload candidate résumé
-- `GET /api/jobs/:id/applications` - List applications for a job
+- `POST /api/jobs` - Cria uma posição de trabalho
+- `GET /api/jobs` - Lista as posições para os usuários logados
+- `GET /api/jobs/:id` - Retorna os detalhes do trabalho
+- `POST /api/jobs/:id/applications` - Upload de currículo
+- `GET /api/jobs/:id/applications` - Lista aplicações por trabalho
 
 ### Applications
-- `GET /api/applications/:id` - Get application details
-
-## Development Notes
-
-- The scoring logic is a simple deterministic function and can be easily replaced with AI-based scoring
-- Resume sanitization uses regex patterns and can be enhanced with more sophisticated NLP
-- Session management uses simple cookies (MVP approach)
-- No JWT, Redis, RBAC, or rate limiting as per requirements
-
-## Troubleshooting
-
-### Database Connection Issues
-
-If you encounter database connection errors:
-1. Ensure MySQL container is running: `docker-compose ps`
-2. Check that the DATABASE_URL in `.env` matches the docker-compose.yml credentials
-3. Wait a few seconds after starting the container for MySQL to fully initialize
-
-### Port Conflicts
-
-If ports 3000 or 3001 are already in use:
-- Backend: Change `PORT` in `backend/.env`
-- Frontend: Change port in `frontend/package.json` dev script
-- MySQL: Change port mapping in `docker-compose.yml`
-
+- `GET /api/applications/:id` - Retorna detalhes da aplicação
