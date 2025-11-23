@@ -2,15 +2,22 @@
 
 Plataforma de recrutamento ético que anonimiza currículos, extrai habilidades e ranqueia candidatos por aderência às vagas.
 
+## Dependências
+- Node.js 20.9.0+
+- Docker e Docker Compose (MySQL em 3306)
+- npm (workspace com `backend` e `frontend`)
+
 ## Como rodar
-- `docker-compose up -d` para subir MySQL (porta 3306).
-- Backend: `cd backend && npm install && npm run db:push` (ou `npm run migrate`) e `npm run dev` (porta 3001).
-- Frontend: `cd frontend && npm install && npm run dev` (porta 3000).
+1) Banco: `docker-compose up -d`.
+2) Backend: `cd backend && npm install && npm run db:push` (ou `npm run migrate`).
+   - Seeds: `npm run db:seed` (usa `prisma/seed.ts`).
+   - Dev: `npm run dev` (porta 3001).
+3) Frontend: `cd frontend && npm install && npm run dev` (porta 3000).
 
 ## Roles e permissões
-- ADMIN: cria/edita/exclui vagas, vê todas, aplica, gerencia aplicações, deleta qualquer aplicação.
-- RECRUITER: cria/edita/exclui vagas próprias, vê aplicações das próprias vagas, aplica em vagas alheias, atualiza status de aplicações das vagas que criou.
-- CANDIDATE: aplica para vagas de terceiros, vê apenas as próprias aplicações.
+- ADMIN: cria/edita/exclui vagas, vê todas, aplica, gerencia e deleta qualquer candidatura.
+- RECRUITER: cria/edita/exclui vagas próprias, vê e gerencia aplicações das vagas que criou, pode aplicar em vagas de outros.
+- CANDIDATE: aplica em vagas de terceiros, vê apenas as próprias candidaturas.
 
 ## Features
 - Anonimização de currículo (remove PII).
@@ -20,6 +27,8 @@ Plataforma de recrutamento ético que anonimiza currículos, extrai habilidades 
 - Criação e gestão de vagas.
 - Upload e gestão de candidaturas (status, notas).
 - Dashboard com ranking de candidatos por vaga.
+- Editor rich text para descrição de vagas (Markdown/Tiptap).
+- Tema claro/escuro com toggle.
 
 ## Endpoints
 - POST `/api/auth/register` — cria usuário (roles: ADMIN | RECRUITER | CANDIDATE).
@@ -38,3 +47,18 @@ Plataforma de recrutamento ético que anonimiza currículos, extrai habilidades 
 - PATCH `/api/applications/:id` — atualiza status/notas (ADMIN ou recrutador dono).
 - DELETE `/api/applications/:id` — remove candidatura (ADMIN ou quem enviou).
 
+## Estrutura de pastas
+```
+.
+├── backend
+│   ├── src/               # Rotas, serviços, middleware, lib
+│   ├── prisma/            # schema.prisma, migrations, seed
+│   └── package.json
+├── frontend
+│   ├── app/               # Next App Router
+│   ├── components/        # UI e Navbar/ThemeToggle
+│   ├── lib/               # API client utils
+│   └── package.json
+├── docker-compose.yml     # MySQL
+└── package.json           # workspaces
+```
