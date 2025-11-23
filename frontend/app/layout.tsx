@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import Navbar from '@/components/Navbar'
+import { ThemeProvider } from '@/components/theme-provider'
 
 export const metadata: Metadata = {
   title: 'RecruiterGuard - Plataforma de Recrutamento Ético',
@@ -14,11 +15,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-      <body className="flex flex-col min-h-screen">
-          <Navbar />
-          {children}
+      <body className="flex flex-col min-h-screen bg-background text-foreground">
+          <ThemeProvider>
+            <Navbar />
+            {children}
+          </ThemeProvider>
       </body>
     </html>
   )
 }
-

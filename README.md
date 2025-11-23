@@ -1,139 +1,40 @@
 # RecruiterGuard
 
-Uma plataforma de recrutamento ética que anonimiza currículos e classifica candidatos com base em habilidades e experiência, não em atributos pessoais.
+Plataforma de recrutamento ético que anonimiza currículos, extrai habilidades e ranqueia candidatos por aderência às vagas.
 
-## Tech Stack
+## Como rodar
+- `docker-compose up -d` para subir MySQL (porta 3306).
+- Backend: `cd backend && npm install && npm run db:push` (ou `npm run migrate`) e `npm run dev` (porta 3001).
+- Frontend: `cd frontend && npm install && npm run dev` (porta 3000).
 
-- **Backend**: Node.js + Express + TypeScript
-- **Frontend**: Next.js 16 (App Router) + TypeScript + TailwindCSS v4.1
-- **Database**: MySQL
-- **ORM**: Prisma
-
-## Pré-requisitos
-
-- Node.js 20.9.0+
-- Docker e Docker Compose (para MySQL)
-
-## Instruções de Setup
-
-### 1. Inicie o banco de dados MySQL
-
-```bash
-docker-compose up -d
-```
-
-Isso iniciará um contêiner MySQL na porta 3306.
-
-### 2. Configuração do back-end
-
-```bash
-cd backend
-npm install
-```
-
-Executar migrações do Prisma:
-
-**Opção 1: Usando o comando db push (recomendado para desenvolvimento, sem necessidade de banco de dados sombra)**
-```bash
-npm run db:push
-```
-
-**Opção 2: Utilizando migrações (para produção, requer banco de dados sombra)**
-```bash
-npm run migrate
-```
-
-**Nota:** Para desenvolvimento, `db:push` é mais simples e não requer um banco de dados sombra. Para produção, use migrações com um banco de dados sombra devidamente configurado.
-
-Isso criará o esquema do banco de dados.
-
-### 3. Configuração do front-end
-
-```bash
-cd frontend
-npm install
-```
-
-## Rodando a aplicação
-
-### Inicie o Backend
-
-```bash
-cd backend
-npm run dev
-```
-
-A API de backend estará disponível em `http://localhost:3001`.
-
-### Inicie o Frontend
-
-```bash
-cd frontend
-npm run dev
-```
-
-A interface estará disponível em `http://localhost:3000`.
-
-## Uso
-
-1. **Cadastre-se**: Crie uma nova conta de recrutador em `http://localhost:3000/register`
-2. **Entre**: Faça login em `http://localhost:3000/login`
-3. **Crie uma vaga**: Crie um anúncio de vaga com título, descrição e habilidades necessárias
-4. **Envie candidatos**: Envie currículos de candidatos (PDF, DOCX ou texto) para uma vaga
-5. **Veja a classificação**: Veja os candidatos classificados por pontuação de compatibilidade com base nas habilidades
-6. **Veja currículos anonimizados**: Visualize o texto anonimizado do currículo, sem informações pessoais identificáveis
+## Roles e permissões
+- ADMIN: cria/edita/exclui vagas, vê todas, aplica, gerencia aplicações, deleta qualquer aplicação.
+- RECRUITER: cria/edita/exclui vagas próprias, vê aplicações das próprias vagas, aplica em vagas alheias, atualiza status de aplicações das vagas que criou.
+- CANDIDATE: aplica para vagas de terceiros, vê apenas as próprias aplicações.
 
 ## Features
+- Anonimização de currículo (remove PII).
+- Extração e listagem de habilidades.
+- Score de match entre candidato e vaga.
+- Cadastro/login com sessão via cookie.
+- Criação e gestão de vagas.
+- Upload e gestão de candidaturas (status, notas).
+- Dashboard com ranking de candidatos por vaga.
 
-- **Higienização de Currículo**: Remove automaticamente informações de identificação pessoal (PII), incluindo:
+## Endpoints
+- POST `/api/auth/register` — cria usuário (roles: ADMIN | RECRUITER | CANDIDATE).
+- POST `/api/auth/login` — autentica.
+- POST `/api/auth/logout` — encerra sessão.
+- GET `/api/auth/me` — usuário atual.
+- PATCH `/api/auth/avatar` — atualiza avatar do usuário logado.
+- POST `/api/jobs` — cria vaga (ADMIN, RECRUITER).
+- GET `/api/jobs` — lista vagas (logados).
+- GET `/api/jobs/:id` — detalhe da vaga.
+- DELETE `/api/jobs/:id` — remove vaga (ADMIN ou recrutador dono).
+- POST `/api/jobs/:id/applications` — envia candidatura para vaga.
+- GET `/api/jobs/:id/applications` — lista candidaturas da vaga (ADMIN ou recrutador dono).
+- GET `/api/applications/me` — candidaturas enviadas pelo usuário logado.
+- GET `/api/applications/:id` — detalhe da candidatura (ADMIN, recrutador dono, ou quem enviou).
+- PATCH `/api/applications/:id` — atualiza status/notas (ADMIN ou recrutador dono).
+- DELETE `/api/applications/:id` — remove candidatura (ADMIN ou quem enviou).
 
-- Nomes
-- Endereços de e-mail
-- Números de telefone
-- Endereços residenciais
-- Datas de nascimento
-- Links para redes sociais
-
-- **Extração de Habilidades**: Extrai habilidades do texto do currículo usando correspondência de palavras-chave
-
-- **Pontuação de Correspondência**: Calcula uma pontuação de correspondência com base na sobreposição entre as habilidades exigidas pela vaga e as habilidades do candidato
-
-- **Listagens Classificadas**: Exibe os candidatos classificados por pontuação de correspondência
-
-## Estrutura do Projeto
-
-```
-.
-├── backend/
-│   ├── src/
-│   │   ├── routes/        # Rotas da API
-│   │   ├── services/      # Lógica de negócios (sanitização, pontuação, etc.)
-│   │   ├── middleware/    # Middleware de autenticação
-│   │   └── lib/           # Utilities (Prisma client)
-│   ├── prisma/            # Prisma schema e migrations
-│   └── package.json
-├── frontend/
-│   ├── app/               # Páginas da aplicação Next.js
-│   ├── components/        # Componentes
-│   ├── lib/               # Comunicação com a API
-│   └── package.json
-└── docker-compose.yml     # Setup do MySQL
-```
-
-## Endpoints da API
-
-### Auth
-- `POST /api/auth/register` - Registra novo usuário
-- `POST /api/auth/login` - Login
-- `POST /api/auth/logout` - Logout
-- `GET /api/auth/me` - Usuário atual
-
-### Jobs
-- `POST /api/jobs` - Cria uma posição de trabalho
-- `GET /api/jobs` - Lista as posições para os usuários logados
-- `GET /api/jobs/:id` - Retorna os detalhes do trabalho
-- `POST /api/jobs/:id/applications` - Upload de currículo
-- `GET /api/jobs/:id/applications` - Lista aplicações por trabalho
-
-### Applications
-- `GET /api/applications/:id` - Retorna detalhes da aplicação

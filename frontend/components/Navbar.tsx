@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { logout, getCurrentUser } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Vagas' },
@@ -63,6 +64,7 @@ export default function Navbar() {
           })}
         </ul>
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <Button variant="ghost" asChild>
             <Link href="/profile" className="flex items-center gap-2">
               <Avatar src={user?.avatarUrl} fallback={user?.name} />

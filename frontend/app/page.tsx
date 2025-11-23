@@ -19,8 +19,7 @@ export default function Home() {
 
   return (
     <main className="flex-1 flex items-center justify-center text-center">
-      <h1 className="text-2xl font-bold text-gray-800">Carregando...</h1>
+      <h1 className="text-2xl font-bold text-foreground">Carregando...</h1>
     </main>
   );
 }
-
