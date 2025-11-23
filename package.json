@@ -1,0 +1,16 @@
+{
+  "name": "recruiter-guard",
+  "version": "1.0.0",
+  "description": "Ethical recruiting platform that anonymizes résumés",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "migrate": "cd backend && npx prisma migrate dev"
+  }
+}
+
