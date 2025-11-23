@@ -92,7 +92,7 @@ export default function JobDetailPage() {
   const [resumeText, setResumeText] = useState('');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [currentUser, setCurrentUser] = useState<null | { id: string; role: 'ADMIN' | 'RECRUITER' | 'CANDIDATE' }>(null);
-  const [hasApplied, setHasApplied] = useState(false);
+  const [hasApplied, setHasApplied] = useState<boolean | null>(null);
   const [canViewApplications, setCanViewApplications] = useState(true);
   const [isOwnJob, setIsOwnJob] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -125,7 +125,10 @@ export default function JobDetailPage() {
               const already = apps.some((app: any) => app.job.id === jobId);
               setHasApplied(already);
             })
-            .catch(() => {})
+            .catch(() => setHasApplied(false))
+            .finally(() => {
+              setHasApplied((value) => (value === null ? false : value));
+            });
         }
       })
       .catch(() => setCurrentUser(null));
@@ -180,7 +183,7 @@ export default function JobDetailPage() {
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (hasApplied || isOwnJob) {
+    if (hasApplied !== false || isOwnJob) {
       return;
     }
     setUploadError('');
@@ -192,6 +195,7 @@ export default function JobDetailPage() {
         resumeFile: resumeFile || undefined,
       });
 
+      setHasApplied(true);
       setResumeText('');
       setResumeFile(null);
       setShowUploadForm(false);
@@ -225,6 +229,10 @@ export default function JobDetailPage() {
   const canDeleteJob = currentUser 
     && (currentUser.role === 'ADMIN' || (currentUser.role === 'RECRUITER'
     && job.user?.id === currentUser.id));
+
+  const checkingApplied = hasApplied === null;
+  const alreadyApplied = hasApplied === true;
+  const disableApply = checkingApplied || alreadyApplied || isOwnJob;
 
   return (
     <main className="flex-1 bg-background">
@@ -348,15 +356,17 @@ export default function JobDetailPage() {
 
                   { !isOwnJob &&
                     <Button
-                      onClick={() => !hasApplied && !isOwnJob && setShowUploadForm(!showUploadForm)}
+                      onClick={() => !disableApply && setShowUploadForm(!showUploadForm)}
                       variant={showUploadForm ? "outline" : "default"}
-                      disabled={hasApplied || isOwnJob}
+                      disabled={disableApply}
                     >
-                      {hasApplied
-                        ? 'Já enviada'
-                        : showUploadForm
-                            ? (<><X className="mr-2 h-4 w-4" />Cancelar</>)
-                            : (<><Upload className="mr-2 h-4 w-4" />Enviar candidatura</>)}
+                      {checkingApplied
+                        ? 'Verificando...'
+                        : alreadyApplied
+                          ? 'Já enviada'
+                          : showUploadForm
+                              ? (<><X className="mr-2 h-4 w-4" />Cancelar</>)
+                              : (<><Upload className="mr-2 h-4 w-4" />Enviar candidatura</>)}
                     </Button>
                   }
                 </div>
@@ -397,13 +407,13 @@ export default function JobDetailPage() {
                     />
                   </div>
 
-                  <Button type="submit" disabled={uploading || hasApplied}>
-                    {hasApplied ? 'Já enviada' : uploading ? 'Enviando...' : 'Enviar Candidatura'}
+                  <Button type="submit" disabled={uploading || alreadyApplied}>
+                    {alreadyApplied ? 'Já enviada' : uploading ? 'Enviando...' : 'Enviar Candidatura'}
                   </Button>
                 </form>
               )}
 
-              {hasApplied && (
+              {alreadyApplied && (
                 <p className="text-sm text-muted-foreground mb-4">Você já enviou uma candidatura para esta vaga.</p>
               )}
 

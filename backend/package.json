@@ -25,7 +25,8 @@
     "express": "^4.18.2",
     "express-fileupload": "^1.4.3",
     "mammoth": "^1.6.0",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "redact-pii": "^3.4.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
