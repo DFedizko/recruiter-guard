@@ -138,11 +138,7 @@ jobsRouter.post('/:id/applications', async (req: AuthRequest, res) => {
       return res.status(400).json({ error: error.message || 'Failed to extract resume text' });
     }
 
-    const sanitizedResumeText = sanitizeResume(originalResumeText, {
-      fullName,
-      email,
-      phone
-    });
+    const sanitizedResumeText = sanitizeResume(originalResumeText);
 
     const extractedSkills = extractSkills(sanitizedResumeText);
 
