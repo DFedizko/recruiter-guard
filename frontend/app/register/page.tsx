@@ -9,12 +9,58 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
+const VALID_DDDS = new Set([
+  '11', '12', '13', '14', '15', '16', '17', '18', '19',
+  '21', '22', '24', '27', '28',
+  '31', '32', '33', '34', '35', '37', '38',
+  '41', '42', '43', '44', '45', '46', '47', '48', '49',
+  '51', '53', '54', '55',
+  '61', '62', '63', '64',
+  '65', '66', '67', '68', '69',
+  '71', '73', '74', '75', '77', '79',
+  '81', '82', '83', '84', '85', '86', '87', '88', '89',
+  '91', '92', '93', '94', '95', '96', '97', '98', '99',
+]);
+
+const sanitizePhone = (value: string) => value.replace(/\D/g, '');
+
+const formatPhone = (digits: string) => {
+  const clean = digits.slice(0, 11);
+  if (clean.length <= 2) return clean;
+  if (clean.length <= 6) return `(${clean.slice(0, 2)}) ${clean.slice(2)}`;
+  if (clean.length <= 10) return `(${clean.slice(0, 2)}) ${clean.slice(2, 6)}-${clean.slice(6)}`;
+  return `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7, 11)}`;
+};
+
+function isValidBrazilPhone(value: string) {
+  const digits = sanitizePhone(value);
+  if (!digits) return true;
+
+  if (digits.length !== 10 && digits.length !== 11) return false;
+
+  const ddd = digits.slice(0, 2);
+  if (!VALID_DDDS.has(ddd)) return false;
+
+  if (/^(\d)\1+$/.test(digits)) return false;
+
+  const firstLocalDigit = digits[2];
+  if (digits.length === 11) {
+    return firstLocalDigit === '9';
+  }
+
+  return ['2', '3', '4', '5'].includes(firstLocalDigit);
+}
+
+const getPhoneError = (value: string) => (isValidBrazilPhone(value) ? '' : 'Telefone inválido');
+
 export default function RegisterPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState('');
   const [role, setRole] = useState<'ADMIN' | 'RECRUITER' | 'CANDIDATE'>('RECRUITER');
@@ -49,15 +95,38 @@ export default function RegisterPage() {
     }
   };
 
+  const handlePhoneBlur = () => {
+    setPhoneTouched(true);
+    setPhoneError(getPhoneError(phone));
+  };
+
+  const handlePhoneChange = (value: string) => {
+    const digits = sanitizePhone(value).slice(0, 11);
+    const formatted = formatPhone(digits);
+    setPhone(formatted);
+    if (phoneTouched) {
+      setPhoneError(getPhoneError(formatted));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const phoneValidationError = getPhoneError(phone);
+    setPhoneError(phoneValidationError);
+
+    if (phoneValidationError) {
+      setPhoneTouched(true);
+      return;
+    }
     setLoading(true);
 
     try {
+      const sanitizedPhone = sanitizePhone(phone);
+
       await register(name, email, password, {
         role,
-        phone: phone || undefined,
+        phone: sanitizedPhone || undefined,
         avatarUrl: avatarPreview || undefined,
       });
       router.push('/dashboard');
@@ -118,8 +187,13 @@ export default function RegisterPage() {
                   type="tel"
                   placeholder="(11) 99999-9999"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  onBlur={handlePhoneBlur}
+                  maxLength={15}
                 />
+                {phoneError && phoneTouched && (
+                  <p className="text-xs text-destructive">{phoneError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="avatar">Foto (opcional)</Label>
